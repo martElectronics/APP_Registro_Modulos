@@ -1,0 +1,35 @@
+{
+
+    "Modulos" : 
+    {
+        "M01" : 1,
+        "M02" : 10,
+        "M03" : 5,
+        "M04" : 2,
+        "M05" : 12,
+        "M06" : 8,
+        "M07" : 3,
+        "M08" : 9,
+        "M09" : 7,
+        "M10" : 11,
+        "M11" : 4,
+        "M12" : 6
+    },
+    
+    "Limites":
+    {   
+        "V min" : 0,
+        "V max" :  100,
+
+        "Temp min"    : 0,
+        "Temp max"    : 80
+    },
+
+
+    "Path": 
+    {
+        "Data":"Data",
+        "Data_proccesed": "Data_proccesed"
+
+    }
+}
