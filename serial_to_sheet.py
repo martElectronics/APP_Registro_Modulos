@@ -109,8 +109,9 @@ def one_capture(ser):
     except requests.RequestException as e:
         print(f"[ERROR] No se pudo conectar al Apps Script: {e}")
         return
-    if code == 200 and body == "ok":
-        print("OK -> subido a la Google Sheet.")
+    if code == 200 and body.startswith("ok"):
+        # El Apps Script devuelve "ok: <nombre de la hoja creada>".
+        print(f"OK -> subido a la Google Sheet. {body}")
     else:
         print(f"[ERROR] Apps Script respondio {code}: {body}")
         if "bad token" in body:
