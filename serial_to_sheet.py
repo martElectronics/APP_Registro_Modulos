@@ -17,6 +17,7 @@ Requisitos:  pip install pyserial requests   (o: pip install -r requirements_ser
 
 import sys
 import os
+import json
 import time
 import argparse
 from datetime import datetime
@@ -30,8 +31,9 @@ APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6K9xdPUp5YF_3YiseZv
 TOKEN           = "MART_cambia_esto_2026"   # DEBE coincidir con el TOKEN del Apps Script
 SERIAL_PORT     = None        # None = autodetecta; o fija p.ej. "COM5"
 BAUDRATE        = 115200
-SAVE_LOCAL      = True         # guarda copia en Data/ para el flujo xlsx (make_dataset.py)
+SAVE_LOCAL      = True         # guarda copia CRUDA en Data/ para el flujo xlsx (make_dataset.py)
 DATA_DIR        = "Data"
+CONFIG_JSON     = "Config.json"  # mapeo orden de lectura del BMS -> módulo físico real
 
 BEGIN = "<<<CSV_BEGIN>>>"
 END   = "<<<CSV_END>>>"
@@ -84,13 +86,48 @@ def upload(csv_text):
 
 
 def save_local(csv_text):
-    """Guarda una copia en Data/ con nombre fechado (lo lee make_dataset.py)."""
+    """Guarda una copia CRUDA en Data/ (orden de lectura) con nombre fechado.
+    La lee make_dataset.py, que aplica su PROPIO remapeo con Config.json -> NO se
+    remapea aquí (si no, doble remapeo)."""
     os.makedirs(DATA_DIR, exist_ok=True)
     fname = datetime.now().strftime("Registro_%d_%m_%Y-%H-%M.csv")
     path = os.path.join(DATA_DIR, fname)
     with open(path, "w", encoding="utf-8") as f:
         f.write(csv_text + "\n")
     return path
+
+
+def load_module_map():
+    """Lee Config.json['Modulos']: etiqueta del orden de lectura del BMS (M01..) ->
+    nº de módulo FÍSICO real. Devuelve {} si no hay fichero/clave."""
+    try:
+        with open(CONFIG_JSON, "r", encoding="utf-8") as f:
+            return json.load(f).get("Modulos", {}) or {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def remap_for_upload(csv_text, mapping):
+    """Para la SUBIDA a Google: reetiqueta cada módulo del orden de lectura (M01..)
+    a su nº físico real (Config.json) y ORDENA las filas por ese nº, para que cada
+    módulo caiga siempre en la misma posición y se pueda seguir en el tiempo.
+    Sin mapeo, usa el propio número de la etiqueta (identidad) y ordena igual."""
+    lines = [l for l in csv_text.splitlines() if l.strip()]
+    if not lines:
+        return csv_text
+    header, out = lines[0], []
+    for line in lines[1:]:
+        if line.startswith("Modulo"):
+            continue
+        cols = line.split(";")
+        real = mapping.get(cols[0])                      # p.ej. "M02" -> 10
+        if real is None:                                  # sin mapeo -> su propio nº
+            digits = "".join(ch for ch in cols[0] if ch.isdigit())
+            real = int(digits) if digits else 0
+        cols[0] = f"M{int(real):02d}"
+        out.append((int(real), ";".join(cols)))
+    out.sort(key=lambda x: x[0])
+    return "\n".join([header] + [row for _, row in out])
 
 
 def one_capture(ser):
@@ -103,9 +140,17 @@ def one_capture(ser):
     n = max(0, len(csv_text.splitlines()) - 1)   # menos la cabecera
     print(f"   Capturados {n} modulos.")
     if SAVE_LOCAL:
-        print(f"   Copia local: {save_local(csv_text)}")
+        print(f"   Copia local (cruda): {save_local(csv_text)}")
+
+    # Para Google: traduce orden de lectura -> módulo físico real y ordena.
+    mapping = load_module_map()
+    if not mapping:
+        print("   [aviso] sin Config.json['Modulos']: subo en orden de lectura "
+              "(sin traducir a módulo real).")
+    upload_csv = remap_for_upload(csv_text, mapping)
+
     try:
-        code, body = upload(csv_text)
+        code, body = upload(upload_csv)
     except requests.RequestException as e:
         print(f"[ERROR] No se pudo conectar al Apps Script: {e}")
         return
