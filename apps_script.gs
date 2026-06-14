@@ -67,7 +67,7 @@ function doPost(e) {
   const head = ['Modulo'];
   for (let i = 1; i <= 11; i++) head.push('V' + i);
   for (let i = 1; i <= 9;  i++) head.push('T' + i);
-  head.push('Delta V', 'Delta T');
+  head.push('V max', 'V min', 'Delta V', 'T max', 'T min', 'Delta T');
 
   const data = [head];
   const bg   = [head.map(() => '#ffffff')];
@@ -95,7 +95,10 @@ function doPost(e) {
     // Celdas fuera de rango -> palabra "ERROR" en vez del número (como el Excel).
     const Vd = V.map((x, i) => vIdx.indexOf(i) >= 0 ? x : 'ERROR');
     const Td = T.map((x, i) => tIdx.indexOf(i) >= 0 ? x : 'ERROR');
-    data.push([mod].concat(Vd, Td, [dV, dT]));
+    // V/T max/min del módulo (solo válidos; '' si no hay ninguno).
+    const vMaxC = vV.length ? vmax : '', vMinC = vV.length ? vmin : '';
+    const tMaxC = tV.length ? tmax : '', tMinC = tV.length ? tmin : '';
+    data.push([mod].concat(Vd, Td, [vMaxC, vMinC, dV, tMaxC, tMinC, dT]));
 
     const row = new Array(head.length).fill('#ffffff');
     for (let i = 0; i < 11; i++)
@@ -120,8 +123,16 @@ function doPost(e) {
 
   const totalRow = new Array(head.length).fill('');
   totalRow[0] = 'Total';
-  totalRow[head.length - 2] = isFinite(gVmax) ? Math.round((gVmax - gVmin) * 1000) / 1000 : '';
-  totalRow[head.length - 1] = isFinite(gTmax) ? Math.round((gTmax - gTmin) * 10) / 10 : '';
+  if (isFinite(gVmax)) {
+    totalRow[head.length - 6] = gVmax;
+    totalRow[head.length - 5] = gVmin;
+    totalRow[head.length - 4] = Math.round((gVmax - gVmin) * 1000) / 1000;
+  }
+  if (isFinite(gTmax)) {
+    totalRow[head.length - 3] = gTmax;
+    totalRow[head.length - 2] = gTmin;
+    totalRow[head.length - 1] = Math.round((gTmax - gTmin) * 10) / 10;
+  }
   data.push(totalRow);
   bg.push(head.map(() => '#ffffff'));
 
