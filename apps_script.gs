@@ -92,7 +92,10 @@ function doPost(e) {
 
     const dV = vV.length ? Math.round((vmax - vmin) * 1000) / 1000 : '';
     const dT = tV.length ? Math.round((tmax - tmin) * 10) / 10 : '';
-    data.push([mod].concat(V, T, [dV, dT]));
+    // Celdas fuera de rango -> palabra "ERROR" en vez del número (como el Excel).
+    const Vd = V.map((x, i) => vIdx.indexOf(i) >= 0 ? x : 'ERROR');
+    const Td = T.map((x, i) => tIdx.indexOf(i) >= 0 ? x : 'ERROR');
+    data.push([mod].concat(Vd, Td, [dV, dT]));
 
     const row = new Array(head.length).fill('#ffffff');
     for (let i = 0; i < 11; i++)
